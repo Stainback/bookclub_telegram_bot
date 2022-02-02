@@ -13,3 +13,13 @@ ids_button = InlineKeyboardButton(text="Meetings", callback_data="meetings_ids")
 admin_keyboard.insert(ids_button)
 
 
+admin_cscheduling_keyboard = InlineKeyboardMarkup(row_width=1)
+
+admin_csch_button = InlineKeyboardButton(text="Cancel scheduling", callback_data="admin_cancel_scheduling")
+admin_cscheduling_keyboard.insert(admin_csch_button)
+
+
+admin_cremoval_keyboard = InlineKeyboardMarkup(row_width=1)
+
+admin_crem_button = InlineKeyboardButton(text="Cancel removal", callback_data="admin_cancel_removal")
+admin_cremoval_keyboard.insert(admin_crem_button)

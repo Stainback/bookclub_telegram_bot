@@ -4,7 +4,7 @@ from datetime import date
 import aioschedule
 
 from config import CHAT_ID, DATE_CLUB_BIRTHDAY
-from data_loader import update_bot_data
+from data_loader import update_mbot_data
 from loader import PROFILE_DATA, bot, MEETING_DATA, MESSAGE_DATA
 from misc.misc_functions import generate_meeting_message
 
@@ -37,7 +37,7 @@ async def remove_obsolete_meetings():
     for meeting in MEETING_DATA:
         if meeting["meeting_date"] == today:
             MEETING_DATA.pop(MEETING_DATA.index(meeting))
-            update_bot_data(MEETING_DATA, PROFILE_DATA)
+            update_mbot_data(MEETING_DATA)
 
 
 async def scheduler():

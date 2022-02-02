@@ -1,8 +1,8 @@
 from aiogram.types import Chat, Message
 
 from config import CHAT_ID
-from data_loader import update_bot_data
-from loader import PROFILE_DATA, MEETING_DATA, bot
+from data_loader import update_pbot_data
+from loader import PROFILE_DATA, bot
 
 
 def generate_meeting_message(meeting: dict) -> str:
@@ -33,7 +33,7 @@ def create_new_member_profile(user):
                           }
 
         PROFILE_DATA.append(new_member_data)
-        update_bot_data(MEETING_DATA, PROFILE_DATA)
+        update_pbot_data(PROFILE_DATA)
 
 
 def admin_check(function):
