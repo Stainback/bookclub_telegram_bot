@@ -1,16 +1,16 @@
 [
     {
-        "meeting_id": "202201291100",
+        "meeting_id": "01291100",
         "location": "Rabbit Coffee Roasters",
-        "meeting_date": "2022-01-29",
+        "meeting_date": "01-29",
         "meeting_time": "11:00",
         "topic": "Shakespear's Sonets",
         "comment": ""
     },
     {
-        "meeting_id": "202202051130",
+        "meeting_id": "02051130",
         "location": "Rabbit Coffee Roasters",
-        "meeting_date": "2022-02-05",
+        "meeting_date": "02-05",
         "meeting_time": "11:30",
         "topic": "Антиутопии - Е. Замятин \"Мы\" и Дж. Оруэлл \"1984\"",
         "comment": ""

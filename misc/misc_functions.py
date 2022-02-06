@@ -37,11 +37,17 @@ def create_new_member_profile(user):
 
 
 def admin_check(function):
-    async def wrapper(message: Message):
+    """This decorator uses for message or callback verification - is it from chat admin or not.
+
+       *args contains only one argument - object with Message or CallbackQuery type.
+       **kwargs contains - object 'state' (FSMContext type), 'raw_state' (with state value), 'command'
+
+    """
+    async def wrapper(message, **kwargs):
 
         chat = await bot.get_chat(CHAT_ID)
         if await is_admin(message["from"]["id"], chat):
-            await function(message)
+            await function(message, **kwargs)
         else:
             await message.delete()
 

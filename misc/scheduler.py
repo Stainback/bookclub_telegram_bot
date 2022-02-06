@@ -25,7 +25,7 @@ async def send_daily_notification():
 
     # Check if today is scheduled meeting
     for meeting in MEETING_DATA:
-        if today == meeting["meeting_date"][5::]:
+        if today == meeting["meeting_date"]:
 
             await bot.send_message(CHAT_ID, generate_meeting_message(meeting))
 
@@ -35,7 +35,7 @@ async def remove_obsolete_meetings():
     today = date.isoformat(date.today())
 
     for meeting in MEETING_DATA:
-        if meeting["meeting_date"] == today:
+        if meeting["meeting_date"] == today[5::]:
             MEETING_DATA.pop(MEETING_DATA.index(meeting))
             update_mbot_data(MEETING_DATA)
 

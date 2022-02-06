@@ -1,6 +1,6 @@
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 
 from data_loader import update_mbot_data
 from keyboards import admin_cscheduling_keyboard
@@ -19,12 +19,12 @@ class FSMAdminSchedule(StatesGroup):
 data = {}
 
 
-@dp.message_handler(commands="cancel_sch", state="*")
+@dp.callback_query_handler(lambda c: c.data == "admin_cancel_scheduling", state="*")
 @admin_check
-async def cancel_schedule_operation(message: Message, state: FSMContext):
+async def cancel_schedule_operation(call: CallbackQuery, state: FSMContext, **kwargs):
     if await state.get_state() in ("FSMAdminSchedule:location", "FSMAdminSchedule:meeting_time",
                                    "FSMAdminSchedule:meeting_date", "FSMAdminSchedule:topic"):
-        await bot.send_message(message["from"]["id"], "Operation has been canceled.")
+        await bot.send_message(call.from_user["id"], "Operation has been canceled.")
 
     elif await state.get_state() == "FSMAdminSchedule:comment":
         data["comment"] = ""
@@ -33,36 +33,36 @@ async def cancel_schedule_operation(message: Message, state: FSMContext):
         MEETING_DATA.append(data)
         update_mbot_data(MEETING_DATA)
 
-        await bot.send_message(message["from"]["id"], f"Meeting has been created. \n {generate_meeting_message(data)}")
+        await bot.send_message(call.from_user["id"], f"Meeting has been created. \n {generate_meeting_message(data)}")
 
     await state.finish()
 
 
 # FSM scenario for meeting scheduling
-@dp.message_handler(commands="schedule", state=None)
+@dp.callback_query_handler(lambda c: c.data == "schedule_meeting", state=None)
 @admin_check
-async def start_meeting_scheduling(message: Message):
+async def start_meeting_scheduling(call: CallbackQuery, **kwargs):
 
     await FSMAdminSchedule.location.set()
 
-    await bot.send_message(message["from"]["id"], "Enter meeting location (place name, address)",
+    await bot.send_message(call.from_user["id"], "Enter meeting location (place name, address)",
                            reply_markup=admin_cscheduling_keyboard)
 
 
 @dp.message_handler(state=FSMAdminSchedule.location)
 @admin_check
-async def fill_location(message: Message):
+async def load_location(message: Message, **kwargs):
 
     data["location"] = message.text
 
     await FSMAdminSchedule.meeting_date.set()
-    await bot.send_message(message["from"]["id"], "Enter meeting date in format YYYY-MM-DD",
+    await bot.send_message(message["from"]["id"], "Enter meeting date in format MM-DD",
                            reply_markup=admin_cscheduling_keyboard)
 
 
 @dp.message_handler(state=FSMAdminSchedule.meeting_date)
 @admin_check
-async def fill_date(message: Message):
+async def load_date(message: Message, **kwargs):
 
     data["meeting_date"] = message.text
 
@@ -73,7 +73,7 @@ async def fill_date(message: Message):
 
 @dp.message_handler(state=FSMAdminSchedule.meeting_time)
 @admin_check
-async def fill_date(message: Message):
+async def load_time(message: Message, **kwargs):
 
     data["meeting_time"] = message.text
 
@@ -84,18 +84,19 @@ async def fill_date(message: Message):
 
 @dp.message_handler(state=FSMAdminSchedule.topic)
 @admin_check
-async def fill_date(message: Message):
+async def load_topic(message: Message, **kwargs):
 
     data["topic"] = message.text
 
     await FSMAdminSchedule.comment.set()
+
     await bot.send_message(message["from"]["id"], "Enter any additional comment here. Press 'Cancel' to skip comment.",
                            reply_markup=admin_cscheduling_keyboard)
 
 
 @dp.message_handler(state=FSMAdminSchedule.comment)
 @admin_check
-async def fill_date(message: Message, state: FSMContext):
+async def load_comment(message: Message, state: FSMContext, **kwargs):
 
     data["comment"] = message.text
     data["meeting_id"] = data["meeting_date"].replace("-", "") + data["meeting_time"].replace(":", "")
