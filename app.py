@@ -3,7 +3,7 @@ import asyncio
 from aiogram import executor
 
 from handlers import dp, bot
-from misc import scheduler
+from misc.scheduler import scheduler
 
 
 async def on_startup(_):

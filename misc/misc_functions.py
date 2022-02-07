@@ -1,8 +1,7 @@
-from aiogram.types import Chat, Message
-
 from config import CHAT_ID
 from data_loader import update_pbot_data
 from loader import PROFILE_DATA, bot
+from misc import Profile
 
 
 def generate_meeting_message(meeting: dict) -> str:
@@ -13,26 +12,18 @@ def generate_meeting_message(meeting: dict) -> str:
     return answer
 
 
-async def is_admin(user_id: int, chat: Chat) -> bool:
-    user = await chat.get_member(int(user_id))
-    admins = await chat.get_administrators()
-
-    return user in admins
-
-
 def create_new_member_profile(user):
-    ids = [profile["t_user_id"] for profile in PROFILE_DATA]
+    ids = [profile.data["user_id"] for profile in PROFILE_DATA]
 
     if user["id"] not in ids:
         new_member_data = {
                             "member_name": user["first_name"],
+                            "user_id": user["id"],
+                            "username": "@" + user["username"],
                             "birth_date": "",
-                            "t_user_id": user["id"],
-                            "t_username": "@" + user["username"],
-                            "instagram": ""
                           }
 
-        PROFILE_DATA.append(new_member_data)
+        PROFILE_DATA.append(Profile(new_member_data))
         update_pbot_data(PROFILE_DATA)
 
 
@@ -46,7 +37,9 @@ def admin_check(function):
     async def wrapper(message, **kwargs):
 
         chat = await bot.get_chat(CHAT_ID)
-        if await is_admin(message["from"]["id"], chat):
+        user = await chat.get_member(int(message["from"]["id"]))
+        admins = await chat.get_administrators()
+        if user in admins:
             await function(message, **kwargs)
         else:
             await message.delete()

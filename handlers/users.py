@@ -16,14 +16,14 @@ async def send_introduction_message(message: Message):
     create_new_member_profile(new_member)
 
     await bot.send_message(message.chat.id,
-                           text=MESSAGE_DATA[0].replace("@username", new_member.mention),
+                           text=MESSAGE_DATA["msg_greeting_001"].replace("@username", new_member.mention),
                            reply_markup=greetings_keyboard)
 
 
 @dp.message_handler(Text(contains="bot", ignore_case=True))
 async def call_bot(message: Message):
 
-    await message.reply(text=MESSAGE_DATA[3].replace("@username", "@" + message["from"]["username"]),
+    await message.reply(text=MESSAGE_DATA["msg_hibot_001"].replace("@username", "@" + message["from"]["username"]),
                         reply_markup=user_keyboard)
 
 
@@ -34,7 +34,7 @@ async def send_meeting_notification(call: CallbackQuery):
 
     msg_text = "Hi! Following meetings are scheduled:\n"
     for meeting in MEETING_DATA:
-        msg_text += generate_meeting_message(meeting)
+        msg_text += generate_meeting_message(meeting.data)
     await bot.send_message(CHAT_ID, msg_text)
 
 

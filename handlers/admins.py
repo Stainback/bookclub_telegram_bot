@@ -20,6 +20,7 @@ async def show_existing_meeting(call: CallbackQuery, **kwargs):
 
     ids = ""
     for meeting in MEETING_DATA:
-        ids += f"\n{meeting['meeting_id']} - {meeting['topic']}, {meeting['meeting_date']} {meeting['meeting_time']}"
+        ids += f"\n{meeting.data['meeting_id']} - " \
+               f"{meeting.data['topic']}, {meeting.data['meeting_date']} {meeting.data['meeting_time']}"
 
     await bot.send_message(call.from_user["id"], ids)
