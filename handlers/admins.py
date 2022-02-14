@@ -1,8 +1,8 @@
 from aiogram.types import Message, CallbackQuery
 
 from keyboards import admin_keyboard
-from loader import dp, bot, MEETING_DATA
-from misc.misc_functions import admin_check
+from loader import dp, bot
+from misc.misc_functions import admin_check, generate_meeting_ids
 
 
 @dp.message_handler(commands="adminpanel")
@@ -14,13 +14,8 @@ async def call_admin_panel(message: Message, **kwargs):
                            reply_markup=admin_keyboard)
 
 
-@dp.callback_query_handler(lambda c: c.data == "meetings_ids", state=None)
+@dp.callback_query_handler(lambda c: c.data == "admin_meetings_ids", state=None)
 @admin_check
 async def show_existing_meeting(call: CallbackQuery, **kwargs):
 
-    ids = ""
-    for meeting in MEETING_DATA:
-        ids += f"\n{meeting.data['meeting_id']} - " \
-               f"{meeting.data['topic']}, {meeting.data['meeting_date']} {meeting.data['meeting_time']}"
-
-    await bot.send_message(call.from_user["id"], ids)
+    await bot.send_message(call.from_user["id"], generate_meeting_ids())

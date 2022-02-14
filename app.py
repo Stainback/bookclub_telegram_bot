@@ -6,11 +6,11 @@ from handlers import dp, bot
 from misc.scheduler import scheduler
 
 
-async def on_startup(_):
+async def on_startup(*args):
     asyncio.create_task(scheduler())
 
 
-async def on_shutdown(_):
+async def on_shutdown(*args):
     await bot.close()
 
 

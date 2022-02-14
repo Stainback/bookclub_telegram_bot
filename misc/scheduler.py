@@ -5,8 +5,7 @@ import aioschedule
 
 from config import CHAT_ID, DATE_CLUB_BIRTHDAY
 from loader import bot, PROFILE_DATA, MEETING_DATA, MESSAGE_DATA
-from data_loader import update_mbot_data
-from misc.misc_functions import generate_meeting_message
+from data_loader import update_bot_data
 
 
 async def send_daily_notification():
@@ -27,7 +26,7 @@ async def send_daily_notification():
     for meeting in MEETING_DATA:
         if today == meeting.data["meeting_date"]:
 
-            await bot.send_message(CHAT_ID, generate_meeting_message(meeting.data))
+            await bot.send_message(CHAT_ID, meeting.generate_meeting_message())
 
 
 async def remove_obsolete_meetings():
@@ -37,7 +36,7 @@ async def remove_obsolete_meetings():
     for meeting in MEETING_DATA:
         if meeting.data["meeting_date"] == today[5::]:
             MEETING_DATA.pop(MEETING_DATA.index(meeting))
-            update_mbot_data(MEETING_DATA)
+            update_bot_data([meeting.data for meeting in MEETING_DATA], "data/data_meetings.json")
 
 
 async def scheduler():

@@ -2,77 +2,161 @@ from aiogram.dispatcher import FSMContext
 
 from aiogram.types import Message, CallbackQuery
 
-from data_loader import update_mbot_data
+from config import CHAT_ID
+from data_loader import update_bot_data
 from fsm.fsm_classes import FSMAdminSchedule
-from keyboards import admin_cscheduling_keyboard
-from loader import dp, bot, MESSAGE_DATA, MEETING_DATA
+from keyboards import admin_cscheduling_keyboard, admin_save_meeting_keyboard, admin_cremoval_keyboard
+from loader import dp, bot, MEETING_DATA, MESSAGE_DATA
 from misc.misc_classes import Meeting
-from misc.misc_functions import admin_check, generate_meeting_message
+from misc.misc_functions import admin_check, generate_meeting_ids
+
+"""
+    FSM scenario for scheduling meeting
+"""
 
 
-# FSM scenario for meeting scheduling
-@dp.callback_query_handler(lambda c: c.data == "schedule_meeting", state=None)
+@dp.callback_query_handler(lambda c: c.data == "admin_create_meeting", state=None)
 @admin_check
-async def start_meeting_scheduling(call: CallbackQuery, **kwargs):
-
-    # Instantiate an FSM
+async def admin_create_meeting(call: CallbackQuery, **kwargs):
+    # Set FSM to scheduling state
     await FSMAdminSchedule.scenario_scheduling.set()
-
-    # Instantiate a new meeting and add it to MEETING_DATA
-    MEETING_DATA.append(Meeting())
-    print(MEETING_DATA)
-
-    # Send information message in personal chat
-    await bot.send_message(call.from_user["id"], MESSAGE_DATA["msg_schedule_00"+str(MEETING_DATA[-1].scenario_count + 1)],
+    # Create a meeting and append it to meeting storage
+    meeting = Meeting()
+    meeting.set_owner(call.from_user["id"])
+    MEETING_DATA.append(meeting)
+    # Send notification message
+    await bot.send_message(call.from_user["id"], MESSAGE_DATA[f"msg_schedule_{meeting.scenario_count}"],
                            reply_markup=admin_cscheduling_keyboard)
 
 
-@dp.message_handler(state=FSMAdminSchedule.scenario_scheduling)
+@dp.callback_query_handler(lambda c: c.data == "admin_edit_meeting", state=None)
 @admin_check
-async def load_meeting_property(message: Message, state: FSMContext, **kwargs):
-    """
-       Function triggers every time when comes message from admin with active scheduling scenario FSM state.
-
-       Meeting object has scenario stage counter. On each of stages (ending with 5th stage) bot is waiting for
-       a response from admin with corresponding data. On 5th stage admin should put a comment or skip this stage using
-       "cancel" function.
-    """
-    print(MEETING_DATA[-1])
-
-    if MEETING_DATA[-1].scenario_count < 4:
-
-        MEETING_DATA[-1].fill_property(message.text)
-
-        await bot.send_message(message.from_user["id"],
-                               MESSAGE_DATA["msg_schedule_00"+str(MEETING_DATA[-1].scenario_count + 1)],
+async def admin_start_edit_meeting(call: CallbackQuery, **kwargs):
+    if MEETING_DATA:
+        # Set FSM to editing state
+        await FSMAdminSchedule.scenario_editing_meeting.set()
+        # Send notification message
+        await bot.send_message(call.from_user["id"], generate_meeting_ids())
+        await bot.send_message(call.from_user["id"], "Enter meeting id that you want to edit.",
                                reply_markup=admin_cscheduling_keyboard)
+    else:
+        await bot.send_message(call.from_user["id"], "No meetings scheduled.")
 
-    elif MEETING_DATA[-1].scenario_count == 4:
 
-        MEETING_DATA[-1].fill_property(message.text)
-        MEETING_DATA[-1].generate_meeting_id()
-        update_mbot_data(MEETING_DATA)
+@dp.message_handler(lambda m: m["from"]["id"] == m["chat"]["id"] and m.text.isdigit(),
+                    state=FSMAdminSchedule.scenario_editing_meeting)
+@admin_check
+async def admin_set_meeting_to_edit_mode(message: Message, state: FSMContext, **kwargs):
+    # Look for the meeting in meeting storage
+    for meeting in MEETING_DATA:
+        if meeting.meeting_id == int(message.text):
+            meeting.set_owner(message.from_user["id"])
+            await FSMAdminSchedule.scenario_scheduling.set()
+            await bot.send_message(message.from_user["id"], MESSAGE_DATA[f"msg_schedule_{meeting.scenario_count}"],
+                                   reply_markup=admin_cscheduling_keyboard)
+            return
+    # Send notification message if meeting has not been found
+    await bot.send_message(message.from_user["id"], "Meeting has not been found")
+    # Abort scenario
+    await state.finish()
 
-        await bot.send_message(message.from_user["id"], f"Meeting has been created. \n"
-                                                        f" {generate_meeting_message(MEETING_DATA[-1].data)}")
-        await state.finish()
+
+@dp.message_handler(lambda m: m["from"]["id"] == m["chat"]["id"], state=FSMAdminSchedule.scenario_scheduling)
+@admin_check
+async def admin_load_property(message: Message, state: FSMContext, **kwargs):
+    # Look for the meeting in meeting storage
+    for meeting in MEETING_DATA:
+        if meeting.owner_id == message.from_user["id"]:
+            if message.text == "skip":
+                meeting.scenario_count += 1
+            else:
+                meeting.fill_property(message.text)  # scenario_count += 1
+
+            while meeting.scenario_count <= len(meeting.properties) - 1:
+                await bot.send_message(message.from_user["id"],
+                                       f"{MESSAGE_DATA[f'msg_schedule_{meeting.scenario_count}']}\n"
+                                       f"\t{meeting.data[meeting.properties[meeting.scenario_count]]}",
+                                       reply_markup=admin_cscheduling_keyboard)
+                return
+
+            # Move to "save meeting" stage if Meeting goes out of unfilled properties
+            await bot.send_message(message.from_user["id"], f"{meeting.generate_meeting_message()}\n"
+                                                            f"Do you want to save the meeting?",
+                                   reply_markup=admin_save_meeting_keyboard)
+            return
+    # Send notification message if meeting has not been found
+    await bot.send_message(message.from_user["id"], "Meeting has not been found")
+    # Abort scenario
+    await state.finish()
+
+
+@dp.callback_query_handler(lambda c: c.data in ("admin_save_send_meeting", "admin_save_meeting"),
+                           state=FSMAdminSchedule.scenario_scheduling)
+@admin_check
+async def admin_save_meeting(call: CallbackQuery, state: FSMContext, **kwargs):
+    # Update file with meeting data
+    update_bot_data([meeting.data for meeting in MEETING_DATA], "data/data_meetings.json")
+    # Send notification message
+    await bot.send_message(call.from_user["id"], "Meeting has been saved")
+    if call.data == "admin_save_send_meeting":
+        # Publish meeting
+        for meeting in MEETING_DATA:
+            if meeting.owner_id == call.from_user["id"]:
+                meeting.set_owner()
+                await bot.send_message(CHAT_ID, meeting.generate_meeting_message())
+    # Finish scenario
+    await state.finish()
 
 
 @dp.callback_query_handler(lambda c: c.data == "admin_cancel_scheduling", state=FSMAdminSchedule.scenario_scheduling)
 @admin_check
-async def cancel_schedule_operation(call: CallbackQuery, state: FSMContext, **kwargs):
-    if MEETING_DATA[-1].scenario_count < 4:
+async def admin_cancel_scheduling(call: CallbackQuery, state: FSMContext, **kwargs):
+    # Delete meeting
+    for meeting in MEETING_DATA:
+        if meeting.owner_id == call.from_user["id"]:
+            MEETING_DATA.pop(MEETING_DATA.index(meeting))
+            update_bot_data([meeting.data for meeting in MEETING_DATA], "data/data_meetings.json")
+    # Send notification message
+    await bot.send_message(call.from_user["id"], "Operation has been cancelled")
+    # Finish scenario
+    await state.finish()
 
-        MEETING_DATA.pop(-1)
-        await bot.send_message(call.from_user["id"], "Operation has been canceled.")
-        print(MEETING_DATA)
 
-    elif MEETING_DATA[-1].scenario_count == 4:
+"""
+    FSM scenario for meeting removal
+"""
 
-        MEETING_DATA[-1].fill_property("")
-        MEETING_DATA[-1].generate_meeting_id()
-        update_mbot_data(MEETING_DATA)
 
-        await bot.send_message(call.from_user["id"], f"Meeting has been created. \n"
-                                                     f" {generate_meeting_message(MEETING_DATA[-1].data)}")
+@dp.callback_query_handler(lambda c: c.data == "admin_remove_meeting", state=None)
+@admin_check
+async def admin_start_removal_scenario(call: CallbackQuery, **kwargs):
+    # Set FSM to removing state
+    await FSMAdminSchedule.scenario_removing.set()
+    # Generate meeting ids and send them in message
+    await bot.send_message(call.from_user["id"], generate_meeting_ids())
+    await bot.send_message(call.from_user["id"], "Enter meeting id to remove",
+                           reply_markup=admin_cremoval_keyboard)
+
+
+@dp.message_handler(lambda m: m["from"]["id"] == m["chat"]["id"] and m.text.isdigit(),
+                    state=FSMAdminSchedule.scenario_removing)
+@admin_check
+async def admin_remove_meeting(message: Message, state: FSMContext, **kwargs):
+    # Remove the meeting from meeting data
+    for meeting in MEETING_DATA:
+        if meeting.meeting_id == int(message.text):
+            MEETING_DATA.pop(MEETING_DATA.index(meeting))
+            update_bot_data([meeting.data for meeting in MEETING_DATA], "data/data_meetings.json")
+            # Send notification message
+            await bot.send_message(message["from"]["id"], "Meeting has been removed")
+    # Finish removal scenario
+    await state.finish()
+
+
+@dp.callback_query_handler(lambda c: c.data == "admin_cancel_removal", state=FSMAdminSchedule.scenario_removing)
+@admin_check
+async def admin_cancel_removal(call: CallbackQuery, state: FSMContext, **kwargs):
+    # Send notification message
+    await bot.send_message(call.from_user["id"], "Operation has been canceled.")
+    # Finish scenario
     await state.finish()
