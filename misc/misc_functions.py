@@ -1,15 +1,5 @@
 from config import CHAT_ID
-from data_loader import update_bot_data
-from loader import bot, MEETING_DATA, PROFILE_DATA
-from misc import Profile
-
-
-def generate_meeting_ids() -> str:
-    ids = ""
-    for meeting in MEETING_DATA:
-        ids += f"\n{meeting.meeting_id} - " \
-               f"{meeting.data['topic']}, {meeting.data['meeting_date']} {meeting.data['meeting_time']}"
-    return ids or "No meetings scheduled"
+from loader import bot
 
 
 def admin_check(function):

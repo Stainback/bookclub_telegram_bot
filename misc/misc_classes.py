@@ -1,61 +1,64 @@
-import random
-
-with open("data/messages.txt", "r", encoding="utf-8") as msg_data:
-    data = msg_data.read().split("***")
+from config import LANG
+from data.main_db import collection_meetings, collection_profiles, collection_localizations
 
 
 class Meeting:
 
-    properties = ["meeting_date", "meeting_time", "topic", "location", "comment"]
+    template = {
+                    "data": {
+                                "meeting_date": "",
+                                "meeting_time": "",
+                                "topic": "",
+                                "location": "",
+                                "comment": ""
+                            }
+                }
 
-    def __init__(self, data=None):
-        self.data = data or {prop: "" for prop in self.properties}
-        self.meeting_id = random.randint(1000, 9999)
-        self.owner_id = 0
-        self.scenario_count = 0
+    def __init__(self, id_num: int, editor_id: int):
+        self.id_num = id_num
+        self.cursor = 0
+        self.edited_by = editor_id
 
-    def set_owner(self, owner_id=0):
-        self.owner_id = owner_id
+    def create_empty_meeting(self):
+        collection_meetings.insert_one({"_id": self.id_num, **self.template})
 
-    def fill_property(self, property_text=""):
-        self.data[self.properties[self.scenario_count]] = property_text
-        self.scenario_count += 1
+    def edit_property(self, text: str):
+        if 0 < self.cursor <= 5:
+            collection_meetings.update_one({"_id": self.id_num},
+                                           {"$set": {list(self.template["data"].keys())[self.cursor - 1]: text}})
+        else:
+            pass
 
-    def generate_meeting_message(self) -> str:
-        meeting_message = (f'\n\t Discussion topic - {self.data["topic"]}, {self.data["meeting_date"]} {self.data["meeting_time"]}.'
-                           f'\n\t {self.data["location"]}\n')
-        if self.data["comment"] != "":
-            meeting_message += f'\t  {self.data["comment"]}\n'
-        return meeting_message
+    def get_data(self):
+        return collection_meetings.find_one({"_id": self.id_num})["data"]
 
 
 class Profile:
 
-    properties = ["member_name", "user_id", "username", "birth_date", "form_id"]
-    form_questions = {item.split("/")[0]: item.split("/")[1]for item in data
-                      if item.split("/")[0].startswith("msg_userform")}
+    form = {m_id: "" for m_id in list(collection_localizations.find_one({"_id": LANG})["prompts"].keys())
+            if m_id.startswith("msg_userform")}
 
-    def __init__(self, data=None, form=None):
-        self.data = data or {prop: "" for prop in self.properties}
-        self.form = form or {q: "" for q in self.form_questions}
-        self.scenario_count = 0
+    template = {
+                    "member_name": "",
+                    "username": "",
+                    "birth_date": "",
+                    "form": {"form_id": 0, **form}
+                }
 
-    def fill_form_field(self, property_text=""):
-        self.form[list(self.form_questions.keys())[self.scenario_count]] = property_text
-        self.scenario_count += 1
+    def __init__(self, user_id: int):
+        self.id_num = user_id
+        self.cursor = 0
 
-    def get_current_answer(self) -> str:
-        return self.form[list(self.form_questions.keys())[self.scenario_count]]
+    def create_empty_profile(self):
+        collection_profiles.insert_one({"_id": self.id_num, **self.template})
 
-    def erase_answers(self):
-        self.form = {q: "" for q in self.form_questions}
+    def edit_property(self, prop: str, text: str):
+        collection_profiles.update_one({"_id": self.id_num}, {"$set": {prop: text}})
 
-    def generate_form_message(self) -> str:
-        form_message = ""
-        question_number = 1
-        for (question, answer) in self.form.items():
-            form_message += f"{question_number}. {self.form_questions[question]}      {answer}\n"
-            question_number += 1
-        return form_message
-
+    def edit_form_field(self, text: str):
+        if 0 < self.cursor <= len(list(self.form.keys())):
+            collection_profiles.update_one({"_id": self.id_num},
+                                           {"$set": {list(self.form.keys())[self.cursor - 1]: text}})
+        else:
+            pass
 

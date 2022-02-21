@@ -3,8 +3,6 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 class FSMAdminSchedule(StatesGroup):
     scenario_scheduling = State()
-    scenario_editing_meeting = State()
-    scenario_removing = State()
 
 
 class FSMUserFillForm(StatesGroup):

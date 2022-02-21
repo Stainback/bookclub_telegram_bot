@@ -3,11 +3,12 @@ from aiogram.dispatcher import FSMContext
 from aiogram.types import Message, CallbackQuery
 
 from config import CHAT_ID
-from data_loader import update_bot_data
 from fsm.fsm_classes import FSMUserFillForm
 from keyboards import cancel_form_keyboard, save_form_keyboard, approve_form_removal_keyboard
-from loader import dp, bot, PROFILE_DATA, MESSAGE_DATA
+from loader import dp, bot
 from misc import Profile
+
+PROFILE_STORAGE = []
 
 
 async def find_profile(user_input, state: FSMContext):
@@ -27,12 +28,6 @@ async def find_profile(user_input, state: FSMContext):
 
 """
     FSM scenario for meeting scheduling
-    
-    Form operation algorythm: start operation -> /ask question -> get answer -> load into Form dict/ ->
-                                        (cycle until questions left, can be interrupted with cancel or edit command) 
-                              -> load Form dict into json -> publish generated form message -> 
-                              -> update Profile with member name, birth date and form message id
-    Operation can be cancelled or redacted only by form owner. Form can be deleted only by form owner or admins.
 """
 
 
@@ -42,7 +37,9 @@ async def set_form_to_edit_mode(call: CallbackQuery, state: FSMContext, **kwargs
     profile = await find_profile(call, state)
     if profile.scenario_count == 0:
         await bot.send_message(call.from_user["id"], MESSAGE_DATA[f"msg_instructions_userform"])
-    await bot.send_message(call.from_user["id"], MESSAGE_DATA[f"msg_userform_{profile.scenario_count}"],
+    await bot.send_message(call.from_user["id"],
+                           f"{MESSAGE_DATA[f'msg_userform_{profile.scenario_count}']}\n"
+                           f"\t{profile.get_current_answer() or 'Ответ еще не дан.'}",
                            reply_markup=cancel_form_keyboard)
 
 
@@ -61,6 +58,7 @@ async def load_answer(message: Message, state: FSMContext, **kwargs):
         return
 
     # Move to "save form" stage if form goes out of unanswered questions
+    profile.scenario_count = 0
     await bot.send_message(message.from_user["id"], f"{profile.generate_form_message()}\n"
                                                     f"Хотите сохранить вашу анкету?",
                            reply_markup=save_form_keyboard)
@@ -70,8 +68,13 @@ async def load_answer(message: Message, state: FSMContext, **kwargs):
 async def save_form(call: CallbackQuery, state: FSMContext, **kwargs):
     # Publish meeting
     profile = await find_profile(call, state)
-    form_message = await bot.send_message(CHAT_ID, profile.generate_form_message())
-    profile.data["form_id"] = form_message.from_user["id"]
+    # Check if form message must be created or edited
+    if profile.data["form_id"] == "":
+        form_message = await bot.send_message(CHAT_ID, profile.generate_form_message())
+        profile.data["form_id"] = form_message["message_id"]
+    else:
+        # aiogram.utils.exceptions.MessageToEditNotFound: Message to edit not found
+        await bot.edit_message_text(profile.generate_form_message(), CHAT_ID, profile.data["form_id"])
     # Update file with meeting data
     update_bot_data([[_profile.data, _profile.form] for _profile in PROFILE_DATA], "data/data_profiles.json")
     # Send notification message
@@ -110,8 +113,12 @@ async def remove_form(call: CallbackQuery, state: FSMContext, **kwargs):
 @dp.callback_query_handler(lambda c: c.data in ("cancel_removal", "cancel_form"),
                            state=FSMUserFillForm.scenario_removing_form)
 async def cancel_operation(call: CallbackQuery, state: FSMContext, **kwargs):
+    if call.data == "cancel_form":
+        profile = await find_profile(call, state)
+        profile.scenario_count = 0
     # Send notification message
-    msg = {"cancel_removal": "Операция была отменена.", "cancel_form": "Заполнение анкеты было отложено."}
-    await bot.send_message(call.from_user["id"], msg[call.data])
+        await bot.send_message(call.from_user["id"], "Заполнение анкеты было отложено.")
+    else:
+        await bot.send_message(call.from_user["id"], "Операция была отменена.")
     # Finish scenario
     await state.finish()

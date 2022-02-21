@@ -1,18 +1,10 @@
-[
-    {
-        "meeting_id": "01291100",
-        "location": "Rabbit Coffee Roasters",
-        "meeting_date": "01-29",
-        "meeting_time": "11:00",
-        "topic": "Shakespear's Sonets",
-        "comment": ""
-    },
-    {
-        "meeting_id": "02051130",
-        "location": "Rabbit Coffee Roasters",
-        "meeting_date": "02-05",
-        "meeting_time": "11:30",
-        "topic": "Антиутопии - Е. Замятин \"Мы\" и Дж. Оруэлл \"1984\"",
-        "comment": ""
-    }
-]
+{
+    "_id": 0,
+    "data": {
+                        "meeting_date": "02-19",
+                        "meeting_time": "11:30",
+                        "topic": "Харуки Мураками \"Норвежский лес\"",
+                        "location": "",
+                        "comment": ""
+                    }
+}

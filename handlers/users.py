@@ -12,11 +12,9 @@ from misc import Profile
 async def send_introduction_message(message: Message):
     new_member = message.new_chat_members[0]
 
-    new_member_profile = Profile()
-    new_member_profile.data["user_id"] = new_member.id
-    new_member_profile.data["username"] = new_member.username
-    PROFILE_DATA.append(new_member_profile)
-    update_bot_data([[_profile.data, _profile.form] for _profile in PROFILE_DATA], "data/data_profiles.json")
+    new_member_profile = Profile(new_member.id)
+    new_member_profile.create_empty_profile()
+    new_member_profile.edit_property("username", message["from"]["username"])
 
     await bot.send_message(message.chat.id,
                            text=MESSAGE_DATA["msg_greeting_001"].replace("@username", new_member.mention),
