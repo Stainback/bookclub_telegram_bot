@@ -2,63 +2,55 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import URL_BOOKSHEET
 
+from data_loader import get_message_prompt
 
 """
     Main user keyboard. 
-
-    Calls in personal bot chat.
 """
-
 user_keyboard = InlineKeyboardMarkup(row_width=2)
 
-edit_form_button = InlineKeyboardButton(text="Заполнить клубную анкету", callback_data="edit_form")
+edit_form_button = InlineKeyboardButton(text=get_message_prompt("txt_edit_form"), callback_data="edit_form")
 user_keyboard.insert(edit_form_button)
 
-meetings_button = InlineKeyboardButton(text="Собрания", callback_data="meetings_callback")
+meetings_button = InlineKeyboardButton(text=get_message_prompt("txt_meetings_notification"),
+                                       callback_data="meetings_callback")
 user_keyboard.insert(meetings_button)
 
-wishlist_button = InlineKeyboardButton(text="Список пожеланий к прочтению", url=URL_BOOKSHEET)
+wishlist_button = InlineKeyboardButton(text=get_message_prompt("txt_wishlist"), url=URL_BOOKSHEET)
 user_keyboard.insert(wishlist_button)
 
+"""
+    Form management keyboard. 
+"""
+manage_form_keyboard = InlineKeyboardMarkup(row_width=1)
+
+start_editing_button = InlineKeyboardButton(text=get_message_prompt("txt_start_editing"), callback_data="start_editing")
+manage_form_keyboard.insert(start_editing_button)
+
+clear_data_button = InlineKeyboardButton(text=get_message_prompt("txt_clear_data"), callback_data="clear_form_data")
+manage_form_keyboard.insert(clear_data_button)
+
+stop_editing_button = InlineKeyboardButton(text=get_message_prompt("txt_stop_editing"), callback_data="stop_editing")
+manage_form_keyboard.insert(stop_editing_button)
 
 """
-    Cancelling keyboard. 
-
-    Attached to bot messages in personal bot chat during form creating operations.
+    Keyboard attached to messages with questions
 """
-cancel_form_keyboard = InlineKeyboardMarkup(row_width=1)
+question_keyboard = InlineKeyboardMarkup(row_width=1)
 
-cancel_form_button = InlineKeyboardButton(text="Отложить заполнение", callback_data="cancel_form")
-cancel_form_keyboard.insert(cancel_form_button)
+skip_question_button = InlineKeyboardButton(text=get_message_prompt("txt_skip_question"),
+                                            callback_data="skip_question")
+question_keyboard.insert(skip_question_button)
 
-
-"""
-    "Approve form removal" keyboard. 
-
-    Attached to bot messages in personal bot chat during removal operations.
-"""
-approve_form_removal_keyboard = InlineKeyboardMarkup(row_width=2)
-
-approve_form_removal_button = InlineKeyboardButton(text="Да", callback_data="remove_form_approved")
-approve_form_removal_keyboard.insert(approve_form_removal_button)
-
-reject_form_removal_button = InlineKeyboardButton(text="Нет", callback_data="cancel_removal")
-approve_form_removal_keyboard.insert(reject_form_removal_button)
+question_keyboard.insert(stop_editing_button)
 
 """
-    Form saving keyboard. 
-
-    Attached to final bot message in form editing operation scenario in personal bot chat.
+    Keyboard attached to message which sends after filling all questions
 """
-save_form_keyboard = InlineKeyboardMarkup(row_width=1)
+publish_form_keyboard = InlineKeyboardMarkup(row_width=2)
 
+approve_publishing_button = InlineKeyboardButton(text=get_message_prompt("txt_approve_publishing"),
+                                                 callback_data="publish_form")
+publish_form_keyboard.insert(approve_publishing_button)
 
-save_send_button = InlineKeyboardButton(text="Да, сохраните и опубликуйте анкету в чат",
-                                        callback_data="save_send_form")
-save_form_keyboard.insert(save_send_button)
-
-delete_button = InlineKeyboardButton(text="Нет, удалите заполненные данные", callback_data="remove_form")
-save_form_keyboard.insert(delete_button)
-
-edit_button = InlineKeyboardButton(text="Нет, я хочу отредактировать ее", callback_data="edit_form")
-save_form_keyboard.insert(edit_button)
+publish_form_keyboard.insert(stop_editing_button)

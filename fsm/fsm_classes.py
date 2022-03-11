@@ -7,5 +7,4 @@ class FSMAdminSchedule(StatesGroup):
 
 class FSMUserFillForm(StatesGroup):
     scenario_form = State()
-    scenario_editing_form = State()
-    scenario_removing_form = State()
+

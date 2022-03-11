@@ -4,8 +4,7 @@ from datetime import date
 import aioschedule
 
 from config import CHAT_ID, DATE_CLUB_BIRTHDAY
-from loader import bot, PROFILE_DATA, MEETING_DATA, MESSAGE_DATA
-from data_loader import update_bot_data
+from loader import bot
 
 
 async def send_daily_notification():

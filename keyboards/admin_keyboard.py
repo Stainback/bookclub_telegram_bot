@@ -1,54 +1,68 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from data_loader import get_message_prompt
+
 """
     Main admin keyboard. 
-    Contains "Schedule meeting", "Edit scheduled meeting", "Delete meeting" and "Show scheduled meetings" buttons.
-    
-    Calls in personal bot chat with /adminpanel command.
 """
-admin_keyboard = InlineKeyboardMarkup(row_width=2)
+admin_keyboard = InlineKeyboardMarkup(row_width=1)
 
-schedule_button = InlineKeyboardButton(text="Manage meetings", callback_data="admin_manage_meetings")
+schedule_button = InlineKeyboardButton(text=get_message_prompt("txt_manage_button"),
+                                       callback_data="admin_manage_meetings")
 admin_keyboard.insert(schedule_button)
 
 
 """
-    
-"""
-admin_pick_meeting_keyboard = InlineKeyboardMarkup(row_width=1)
-
-admin_pick_button = InlineKeyboardButton(text="Pick this meeting", callback_data="admin_cancel_scheduling")
-admin_pick_meeting_keyboard.insert(admin_pick_button)
-
-
+  
 """
 
-"""
-admin_create_meeting_keyboard = InlineKeyboardMarkup(row_width=1)
 
-admin_create_meeting_button = InlineKeyboardButton(text="Create new meeting", callback_data="admin_create_meeting")
-admin_create_meeting_keyboard.insert(admin_create_meeting_button)
+def create_pm_keyboard(c_data: str):
+    admin_pick_meeting_keyboard = InlineKeyboardMarkup(row_width=1)
 
-"""
-   
-"""
-admin_pick_property_keyboard = InlineKeyboardMarkup(row_width=1)
+    admin_pick_button = InlineKeyboardButton(text=get_message_prompt("txt_pick_button"),
+                                             callback_data=c_data)
+    admin_pick_meeting_keyboard.insert(admin_pick_button)
 
-for i in range(5):
-    admin_pick_property_button = InlineKeyboardButton(text=f"{i}", callback_data=f"admin_meeting_property_{i}")
-    admin_pick_property_keyboard.insert(admin_pick_property_button)
-
-admin_delete_meeting_button = InlineKeyboardButton(text="Delete this meeting", callback_data="admin_delete_meeting")
-admin_pick_property_keyboard.insert(admin_delete_meeting_button)
-
-admin_exit_meeting = InlineKeyboardButton(text="Save and exit", callback_data="admin_save_meeting")
-admin_pick_property_keyboard.insert(admin_exit_meeting)
+    return admin_pick_meeting_keyboard
 
 
 """
 
 """
-admin_reject_choice_keyboard = InlineKeyboardMarkup(row_width=1)
+admin_manage_meeting_keyboard = InlineKeyboardMarkup(row_width=1)
 
-admin_reject_choice_button = InlineKeyboardButton(text="Reject choice", callback_data="admin_reject_choice")
-admin_reject_choice_keyboard.insert(admin_reject_choice_button)
+admin_create_meeting_button = InlineKeyboardButton(text=get_message_prompt("txt_create_meeting"),
+                                                   callback_data="admin_create_meeting")
+admin_manage_meeting_keyboard.insert(admin_create_meeting_button)
+
+admin_stop_assigning_button = InlineKeyboardButton(text=get_message_prompt("txt_stop_meeting"),
+                                                   callback_data="admin_stop_assigning")
+admin_manage_meeting_keyboard.insert(admin_stop_assigning_button)
+
+
+"""
+
+"""
+admin_meeting_property_keyboard = InlineKeyboardMarkup(row_width=1)
+
+admin_skip_property_button = InlineKeyboardButton(text=get_message_prompt("txt_skip_property"),
+                                                  callback_data="admin_delete_meeting")
+admin_meeting_property_keyboard.insert(admin_skip_property_button)
+
+admin_delete_meeting_button = InlineKeyboardButton(text=get_message_prompt("txt_delete_meeting"),
+                                                   callback_data="admin_delete_meeting")
+admin_meeting_property_keyboard.insert(admin_delete_meeting_button)
+
+admin_meeting_property_keyboard.insert(admin_stop_assigning_button)
+
+"""
+
+"""
+admin_publish_meeting_keyboard = InlineKeyboardMarkup(row_width=1)
+
+admin_approve_publishing_button = InlineKeyboardButton(text=get_message_prompt("txt_approve_publishing"),
+                                                       callback_data="admin_approve_meeting_publishing")
+admin_publish_meeting_keyboard.insert(admin_approve_publishing_button)
+
+admin_publish_meeting_keyboard.insert(admin_stop_assigning_button)

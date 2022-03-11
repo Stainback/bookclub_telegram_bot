@@ -4,121 +4,105 @@ from aiogram.types import Message, CallbackQuery
 
 from config import CHAT_ID
 from fsm.fsm_classes import FSMUserFillForm
-from keyboards import cancel_form_keyboard, save_form_keyboard, approve_form_removal_keyboard
+from keyboards import manage_form_keyboard, question_keyboard, publish_form_keyboard
 from loader import dp, bot
-from misc import Profile
+from data_loader import collection_profiles, get_message_prompt
+from misc import Profile, BotContainer
 
-PROFILE_STORAGE = []
-
-
-async def find_profile(user_input, state: FSMContext):
-    """
-        Looks for profile which is owned by input sender. If such profile has not been found, create one.
-    """
-    for profile in PROFILE_DATA:
-        if profile.data["user_id"] == user_input.from_user["id"]:
-            return profile
-    new_profile = Profile()
-    new_profile.data["user_id"] = user_input.from_user["id"]
-    new_profile.data["username"] = user_input.from_user["username"]
-    PROFILE_DATA.append(new_profile)
-    update_bot_data([[_profile.data, _profile.form] for _profile in PROFILE_DATA], "data/data_profiles.json")
-    return new_profile
+PROFILE_STORAGE = BotContainer("p")
 
 
 """
-    FSM scenario for meeting scheduling
+    FSM scenario for user form management   
 """
 
 
-@dp.callback_query_handler(lambda c: c.data == "edit_form", state="*")
-async def set_form_to_edit_mode(call: CallbackQuery, state: FSMContext, **kwargs):
-    await FSMUserFillForm.scenario_form.set()
-    profile = await find_profile(call, state)
-    if profile.scenario_count == 0:
-        await bot.send_message(call.from_user["id"], MESSAGE_DATA[f"msg_instructions_userform"])
-    await bot.send_message(call.from_user["id"],
-                           f"{MESSAGE_DATA[f'msg_userform_{profile.scenario_count}']}\n"
-                           f"\t{profile.get_current_answer() or 'Ответ еще не дан.'}",
-                           reply_markup=cancel_form_keyboard)
+@dp.callback_query_handler(lambda c: c.data == "edit_form", state=None)
+async def user_set_to_editing(call: CallbackQuery):
+    # Create Profile object and add it to container
+    profile = Profile(call.from_user["id"])
+    try:
+        PROFILE_STORAGE.add_object(profile)
+    except ValueError as e:
+        print(e)
+    # Check if user profile exists in db
+    if collection_profiles.find_one({"_id": call.from_user["id"]}) is None:
+        profile.create_empty_profile()
+    # Send message with user management interface
+    await bot.send_message(call.from_user["id"], get_message_prompt("msg_manual_userform"),
+                           reply_markup=manage_form_keyboard)           # start_editing, clear_data, stop_editing
+
+
+@dp.callback_query_handler(lambda c: c.data == "start_editing", state=None)
+async def user_start_editing(call: CallbackQuery):
+    # Set FSM to editing state
+    FSMUserFillForm.scenario_form.set()
+    # Send message with first question to user
+    await bot.send_message(call.from_user["id"], get_message_prompt("msg_userform_0"),
+                           reply_markup=question_keyboard)             # skip_question, stop_editing
+
+
+async def process_user_response(text: str, message):
+    try:
+        # Find profile in container
+        profile = PROFILE_STORAGE.find_object(message.from_user["id"])
+        # Process response
+        if text != "skip_question":
+            profile.edit_form_field(message.text)
+        profile.cursor += 1
+        # Send message with next question
+        next_question = profile.form[f"msg_userform_{profile.cursor}"]
+        await bot.send_message(message.from_user["id"], next_question,
+                               reply_markup=question_keyboard)          # skip_question, stop_editing
+    except ValueError as err:
+        print(err)
+    except KeyError:
+        profile = PROFILE_STORAGE.find_object(message.from_user["id"])
+        await bot.send_message(message.from_user["id"], profile.generate_form_text(),
+                               reply_markup=publish_form_keyboard)
 
 
 @dp.message_handler(lambda m: m["from"]["id"] == m["chat"]["id"], state=FSMUserFillForm.scenario_form)
-async def load_answer(message: Message, state: FSMContext, **kwargs):
-    profile = await find_profile(message, state)
-    if message.text.lower().replace('"', '') == "пропустить":
-        profile.scenario_count += 1
-    else:
-        profile.fill_form_field(message.text)  # scenario_count += 1
-    while profile.scenario_count <= len(profile.form_questions) - 1:
-        await bot.send_message(message.from_user["id"],
-                               f"{MESSAGE_DATA[f'msg_userform_{profile.scenario_count}']}\n"
-                               f"\t{profile.get_current_answer() or 'Ответ еще не дан.'}",
-                               reply_markup=cancel_form_keyboard)
-        return
-
-    # Move to "save form" stage if form goes out of unanswered questions
-    profile.scenario_count = 0
-    await bot.send_message(message.from_user["id"], f"{profile.generate_form_message()}\n"
-                                                    f"Хотите сохранить вашу анкету?",
-                           reply_markup=save_form_keyboard)
+async def user_receive_response(message: Message):
+    await process_user_response(message.text, message)
 
 
-@dp.callback_query_handler(lambda c: c.data == "save_send_form", state=FSMUserFillForm.scenario_form)
-async def save_form(call: CallbackQuery, state: FSMContext, **kwargs):
-    # Publish meeting
-    profile = await find_profile(call, state)
-    # Check if form message must be created or edited
-    if profile.data["form_id"] == "":
-        form_message = await bot.send_message(CHAT_ID, profile.generate_form_message())
-        profile.data["form_id"] = form_message["message_id"]
-    else:
-        # aiogram.utils.exceptions.MessageToEditNotFound: Message to edit not found
-        await bot.edit_message_text(profile.generate_form_message(), CHAT_ID, profile.data["form_id"])
-    # Update file with meeting data
-    update_bot_data([[_profile.data, _profile.form] for _profile in PROFILE_DATA], "data/data_profiles.json")
-    # Send notification message
-    await bot.send_message(call.from_user["id"], "Анкета была успешно сохранена.")
-    # Finish scenario
-    await state.finish()
+@dp.callback_query_handler(lambda c: c.data == "skip_question", state=FSMUserFillForm.scenario_form)
+async def user_skip_question(call: CallbackQuery):
+    await process_user_response(call.data, call)
 
 
-"""
-    FSM scenario for meeting removal
-"""
-
-
-@dp.callback_query_handler(lambda c: c.data == "remove_form", state="*")
-async def start_removal_form(call: CallbackQuery, **kwargs):
-    # Set FSM to removing state
-    await FSMUserFillForm.scenario_removing_form.set()
-    # Ask user to approve
-    await bot.send_message(call.from_user["id"], "Вы уверены, что хотите стереть данные из вашей анкеты?",
-                           reply_markup=approve_form_removal_keyboard)
-
-
-@dp.callback_query_handler(lambda c: c.data == "remove_form_approved", state=FSMUserFillForm.scenario_removing_form)
-async def remove_form(call: CallbackQuery, state: FSMContext, **kwargs):
-    # Remove the form from form storage
-    profile = await find_profile(call, state)
-    if profile is not None:
-        profile.erase_answers()
-        update_bot_data([[_profile.data, _profile.form] for _profile in PROFILE_DATA], "data/data_profiles.json")
+@dp.callback_query_handler(lambda c: c.data == "clear_form_data", state=None)
+async def user_clear_form_data(call: CallbackQuery):
+    try:
+        profile = PROFILE_STORAGE.find_object(call.from_user["id"])
+        collection_profiles.delete_one({"_id": call.from_user["id"]})
+        profile.create_empty_profile()
         # Send notification message
-        await bot.send_message(call["from"]["id"], "Ваша анкета была очищена.")
-        # Finish removal scenario
+        await bot.send_message(call.from_user["id"], get_message_prompt("msg_clear_userform"),
+                               reply_markup=manage_form_keyboard)  # start_editing, clear_data, stop_editing
+    except ValueError as err:
+        print(err)
+
+
+@dp.callback_query_handler(lambda c: c.data == "stop_editing", state="*")
+async def user_stop_editing(call: CallbackQuery, state: FSMContext):
+    try:
+        profile = PROFILE_STORAGE.find_object(call.from_user["id"])
+        PROFILE_STORAGE.remove_object(profile)
+        # Send notification message
+        await bot.send_message(call.from_user["id"], get_message_prompt("msg_stop_userform"))
+        # Close FSM
         await state.finish()
+    except ValueError as err:
+        print(err)
 
 
-@dp.callback_query_handler(lambda c: c.data in ("cancel_removal", "cancel_form"),
-                           state=FSMUserFillForm.scenario_removing_form)
-async def cancel_operation(call: CallbackQuery, state: FSMContext, **kwargs):
-    if call.data == "cancel_form":
-        profile = await find_profile(call, state)
-        profile.scenario_count = 0
-    # Send notification message
-        await bot.send_message(call.from_user["id"], "Заполнение анкеты было отложено.")
-    else:
-        await bot.send_message(call.from_user["id"], "Операция была отменена.")
-    # Finish scenario
-    await state.finish()
+@dp.callback_query_handler(lambda c: c.data == "publish_form", state=FSMUserFillForm.scenario_form)
+async def publish_form(call: CallbackQuery, state: FSMContext):
+    profile = PROFILE_STORAGE.find_object(call.from_user["id"])
+    profile_msg = await bot.send_message(CHAT_ID, profile.generate_form_text())
+    # Write form message id to db
+    collection_profiles.update_one({"_id": profile.id_num}, {"$set": {"form": {"form_id": profile_msg["id"]}}})
+    await user_stop_editing(call, state)
+
