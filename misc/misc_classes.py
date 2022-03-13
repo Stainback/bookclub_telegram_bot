@@ -1,3 +1,5 @@
+import logging
+
 from config import LANG
 from data_loader import collection_meetings, collection_profiles, collection_localizations
 
@@ -21,11 +23,13 @@ class Meeting:
 
     def create_empty_meeting(self):
         collection_meetings.insert_one(self.template)
+        logging.info(f"Meeting template {self.id_db} has been created.")
 
     def edit_property(self, text: str):
         if 0 < self.cursor <= len(list(self.template["data"].keys())):
             collection_meetings.update_one({"_id": self.id_db},
                                            {"$set": {list(self.template["data"].keys())[self.cursor - 1]: text}})
+            logging.info(f"Meeting {self.id_db} has been updated.")
 
     def generate_meeting_text(self):
         meeting_data = collection_meetings.find_one({"_id": self.id_db})
@@ -52,9 +56,11 @@ class Profile:
 
     def create_empty_profile(self):
         collection_profiles.insert_one({"_id": self.id_num, **self.template})
+        logging.info(f"Profile template for user_id {self.id_num} has been created.")
 
     def edit_property(self, prop: str, text: str):
         collection_profiles.update_one({"_id": self.id_num}, {"$set": {prop: text}})
+        logging.info(f"Profile {self.id_num} has been updated.")
 
     def edit_form_field(self, text: str):
         if 0 < self.cursor <= len(list(self.form.keys())):
@@ -66,6 +72,7 @@ class Profile:
                 self.edit_property("birth_date", text)
             collection_profiles.update_one({"_id": self.id_num},
                                            {"$set": {list(self.form.keys())[self.cursor - 1]: text}})
+            logging.info(f"Form {self.id_num} has been updated.")
 
     def generate_form_text(self):
         form_data = collection_profiles.find_one({"_id": self.id_num})["form"]
@@ -91,11 +98,12 @@ class BotContainer:
         if self.content_type == "m":
             if isinstance(obj, Meeting):
                 self.container.append(obj)
-        if self.content_type == "p":
+        elif self.content_type == "p":
             if isinstance(obj, Profile):
                 self.container.append(obj)
         else:
             raise ValueError("Only Profiles or Meetings can be added to the container.")
+        logging.info(f"{obj} has been added to the storage.")
 
     def find_object(self, id_num: int):
         for obj in self.container:
@@ -107,5 +115,5 @@ class BotContainer:
         for obj in self.container:
             if obj.id_num == id_num:
                 self.container.pop(obj)
-                print(f"Object with id {id_num} has been removed from container.")
+                logging.info(f"Object with id {id_num} has been removed from container.")
                 return

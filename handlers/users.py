@@ -1,3 +1,5 @@
+import logging
+
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ContentType, CallbackQuery
 
@@ -15,6 +17,9 @@ async def send_introduction_message(message: Message):
     new_member_profile = Profile(new_member.id)
     new_member_profile.create_empty_profile()
     new_member_profile.edit_property("username", message["from"]["username"])
+
+    logging.info(f"New member {new_member['username']} has been registered.")
+
     # Send notification message
     await bot.send_message(message.chat.id,
                            text=get_message_prompt("msg_greeting_001").replace("@username", new_member.mention),
@@ -26,12 +31,14 @@ async def call_bot(message: Message):
     # Send message with bot interface as answer on call
     await message.reply(text=get_message_prompt("msg_hibot_001").replace("@username", "@" + message["from"]["username"]),
                         reply_markup=user_keyboard)
+    logging.info(f"Bot has been called by {message.from_user['username']}")
 
 
 @dp.callback_query_handler(lambda c: c.data == "meetings_callback")
 async def send_meeting_notification(call: CallbackQuery):
     # Timeout assignment
     await call.answer(cache_time=3600)
+
     meeting_text = ""
     for meeting in collection_meetings.find({}):
         meeting_data = meeting["data"]
@@ -39,3 +46,4 @@ async def send_meeting_notification(call: CallbackQuery):
         meeting_text += f"\n{meeting_data['topic']}. {meeting_data['meeting_date']}, {meeting_data['meeting_time']}." \
                         f"\n{meeting_data['location']}\n{meeting_data['comment']}\n"
     await bot.send_message(call.from_user["id"], meeting_text)
+    logging.info(f"'Send meeting notification' function has been done successfully.")
